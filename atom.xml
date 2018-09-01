@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2018-08-19T10:32:58.155Z</updated>
+  <updated>2018-09-01T16:22:03.645Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -15,6 +15,28 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>RSA之共模攻击</title>
+    <link href="http://yoursite.com/2018/09/02/RSA/"/>
+    <id>http://yoursite.com/2018/09/02/RSA/</id>
+    <published>2018-09-01T16:20:15.819Z</published>
+    <updated>2018-09-01T16:22:03.645Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="共模攻击"><a href="#共模攻击" class="headerlink" title="共模攻击"></a>共模攻击</h2><p>最近巅峰极客线上第二场遇到了RSA的共模攻击，本身不难，但是还是踩了一些坑。。。记录一下</p><p>可攻击的原因在于两个用户使用了相同的模数N，不同的私钥，并加密同一明文消息</p><p>由以上的条件，设明文消息为m,两个用户选择的公钥分别为$ e_i $和$ e_j $,且$ e_i$和$ e_j $互素，对于同一明文m加密有：<br>$$<br>c_i=m^ei(mod\quad N),c_j=m^{e_j}(mod\quad N)<br>$$<br>又因$ e_i $和$ e_j $互素,必存在整数s和t,满足$se_i+te_j=1$, 从而$c_i^sc_j^t=m^{se_i+te_j}=m(mod\quad N)$</p><p>题目直接给到的是两个密文文件，两个公钥文件，这里需要使用openssl查看具体的公钥参数</p><blockquote><p>openssl rsa -pubin -in pubkey1.pem -text -modulus</p><p>提取出N和e</p></blockquote><p>分别提取pubkey1.pem和pubkey2.pem，可以看到N相同，e1=2333,e2=23333</p><p>满足共模攻击条件</p><p>而这里还需要把密文从base64转换成16进制数,可以使用</p><blockquote><p>echo base64编码密文 |openssl base -d |xxd -ps</p></blockquote><p>贴出一个jio本</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div></pre></td><td class="code"><pre><div class="line"># -*- coding: utf-8 -*-</div><div class="line"></div><div class="line">from libnum import n2s,s2n</div><div class="line">from gmpy2 import invert</div><div class="line"></div><div class="line"># 递归实现欧几里得算法</div><div class="line"></div><div class="line">def egcd(a, b):</div><div class="line">  if a == 0:</div><div class="line">    return (b, 0, 1)</div><div class="line">  else:</div><div class="line">    g, y, x = egcd(b % a, a)</div><div class="line">    return (g, x - (b // a) * y, y)</div><div class="line"></div><div class="line">def main():</div><div class="line">  n = 0x8989A398988456B3FEF4A6AD86DF3C99577F8978048DE5436BEFC30D8D8C94958912AA526FF333B66857306EBB8DE36C2C396A84EFDC5D382502DAA1A3F3B6E97502D2E31C849330F5B4C95257A149A97F5954EAF89341147ADCDD4E950FFF74E30BBE622876B42EEAC86DF4AD9715D05B5604AA8179424C7D9AC46BD6B5F322B2B5728BA148704A25A8EFCC1E7C84EA7E5CE3E01703F04F94A431D9954BD7AE2C7DD6E879B35F8A2D4A5EFBE737257BF99BD9EE66B15AFF233FC77B558A487DA5952FBE2B923DA9C5EB46788C050336B7E36A5ED82D5C1B2AEB0E45BEE405CBE72481DB2568AA829EEAC87D201A5A8FF5EE6F0BE38192AB2839635F6C664217</div><div class="line">  c1 = 0x5d22812766e24ba6eb0b9886c14d06662b477553371d7022c2d16755fdbe1d3694a856a1c4bf81c418b6403731ee02f172311608cc053fa0d2f769cc014e2bd203d6484508a18e7bb20359b230c80c0ba489878b343520633fb53fe9c5e1f93b8303dda33ac8bc05c60c1bcc063baf8aab02f2f9953f723a78b2e4b7d0b8e8716dd12070e7271f0235680c5dabeffe01d540ece06d1da480d40a4e2485ecf382ab299fab6ab70386076eefaca7a0a0bfc59709aeb45608b9128a0812b1df273fa9f59767ce0ea3c9cfaa06b180397159e2ed18cf59a2ec052a76a09a36e71fee7c3deb1cc385d869f5caa858d0cf75eb2bfb9411213c8c81083de2f5fbcc94a7</div><div class="line">  c2 = 0x12bbb3c150174952c2deb95d8dcb31e873b4514202751f71c60afd796361216d13f25d8edf24ff2e514b2b6f985341c1f7bc6be476a265eb24e13e88b89f7e88ecc1f184a458c7d8bce4832a7ec99e0ff5437c10ba895d9be52eae6664884b3d9058be121b023406d50272f32d72f0cd89b77a66a6b9e0eaaeee03a28fe548ccfca74fa3ab3db81ec70937db2153ce565f8267816f764441c757cacf1da8ac09dc5e02cfae3f24cdccee086f00da26fc37651fcba389b52b6430f0f6d89ce72056bf42591ee6572c687e85a4eaa5a941fdddd1f5fac1b6cf710917c679ea2d6cb94b73d970d41ad7091f4532493b4dd098d56c3a2bd719bdc6ce67996f199585</div><div class="line"></div><div class="line">  e1 = 2333</div><div class="line">  e2 = 23333</div><div class="line">  s = egcd(e1, e2)</div><div class="line">  s1 = s[1]</div><div class="line">  s2 = s[2]</div><div class="line"></div><div class="line"># 求模反元素</div><div class="line"></div><div class="line">  if s1&lt;0:</div><div class="line">    s1 = - s1</div><div class="line">    c1 = invert(c1, n)</div><div class="line">  elif s2&lt;0:</div><div class="line">    s2 = - s2</div><div class="line">    c2 = invert(c2, n)</div><div class="line"></div><div class="line">  m = pow(c1,s1,n)*pow(c2,s2,n) % n</div><div class="line">  print n2s(m)</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">  main()</div></pre></td></tr></table></figure><p>求模反元素那里，是因为若$s_1$&lt;0,则$c_1^{s_1}==(c_1^{-1})^{-s_1}$</p><h3 id="另一些常用的openssl命令"><a href="#另一些常用的openssl命令" class="headerlink" title="另一些常用的openssl命令"></a>另一些常用的openssl命令</h3><ul><li>解密：</li></ul><blockquote><p>openssl rsautl -decrypt -inkey private.pem -in flag.enc -out flag</p><p>openssl rsautl -decrypt -in flag.enc -inkey private.key -out flag.de</p><p>openssl rsautl -decrypt -in flag.enc -inkey private.key -out flag.de -oaep </p><p>openssl rsautl -decrypt -in flag.enc-inkey private.key -out flag.de -pkcs</p></blockquote><ul><li>私钥签名:</li></ul><blockquote><p>openssl rsautl -sign -in test -out test.sig-inkey asn1enc.pem</p></blockquote><ul><li>公钥验证:</li></ul><blockquote><p>openssl rsautl -verify -in test.sig -out test.vfy -inkey asn1pub.pem -pubin</p></blockquote><h3 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h3><p><a href="https://ctf-wiki.github.io/ctf-wiki/crypto/asymmetric/rsa/rsa_module_attack/#_6" target="_blank" rel="external">https://ctf-wiki.github.io/ctf-wiki/crypto/asymmetric/rsa/rsa_module_attack/#_6</a></p><p><a href="https://www.cnblogs.com/gwind/p/8013154.html" target="_blank" rel="external">https://www.cnblogs.com/gwind/p/8013154.html</a></p><p><a href="https://blog.csdn.net/like98k/article/details/79352076" target="_blank" rel="external">https://blog.csdn.net/like98k/article/details/79352076</a></p>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;h2 id=&quot;共模攻击&quot;&gt;&lt;a href=&quot;#共模攻击&quot; class=&quot;headerlink&quot; title=&quot;共模攻击&quot;&gt;&lt;/a&gt;共模攻击&lt;/h2&gt;&lt;p&gt;最近巅峰极客线上第二场遇到了RSA的共模攻击，本身不难，但是还是踩了一些坑。。。记录一下&lt;/p&gt;
+&lt;p&gt;可攻击的原因在于两个
+      
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>SQL注入姿势</title>
